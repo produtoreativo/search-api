@@ -4,7 +4,6 @@ services:
 
   mysql:
     image: wesleywillians/mysql-kafka-connect:latest
-    container_name: mysql
     command: --innodb-use-native-aio=0
     tty: true
     restart: always
@@ -30,14 +29,12 @@ services:
       PMA_PASSWORD: root
 
   zookeeper:
-    container_name: zookeeper
     image: confluentinc/cp-zookeeper:latest
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
 
   kafka:
     image: confluentinc/cp-kafka:latest
-    container_name: kafka
     depends_on:
       - zookeeper
     ports:
@@ -56,7 +53,6 @@ services:
 
   control-center:
     image: confluentinc/cp-enterprise-control-center:6.0.1
-    container_name: control-center
     hostname: control-center
     depends_on:
       - kafka
@@ -72,7 +68,6 @@ services:
 
   kafka-connect:
     image: confluentinc/cp-kafka-connect-base:6.0.0
-    container_name: kafka-connect
     depends_on:
       - zookeeper
       - kafka
@@ -105,7 +100,7 @@ services:
       - |
         echo "Installing Connector"
         confluent-hub install --no-prompt debezium/debezium-connector-mysql:1.2.2
-        confluent-hub install --no-prompt confluentinc/kafka-connect-elasticsearch:10.0.1
+        confluent-hub install --no-prompt confluentinc/kafka-connect-elasticsearch:14.0.6
         #
         echo "Launching Kafka Connect worker"
         /etc/confluent/docker/run &
@@ -115,38 +110,24 @@ services:
       - "host.docker.internal:172.17.0.1"
 
   es01:
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.11.2
-    container_name: es01
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.7.1
     environment:
+      - discovery.type=single-node
       - node.name=es01
-      - cluster.name=es-docker-cluster
-      - cluster.initial_master_nodes=es01
-      - bootstrap.memory_lock=true
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-    # volumes:
-    #   - ./es01:/usr/share/elasticsearch/data
+      - xpack.security.enabled=false
     ports:
       - 9200:9200
-    extra_hosts:
-      - "host.docker.internal:172.17.0.1"
+
 
   kib01:
-    image: docker.elastic.co/kibana/kibana:7.11.2
-    container_name: kib01
+    image: docker.elastic.co/kibana/kibana:8.7.1
     ports:
       - 5601:5601
     environment:
       ELASTICSEARCH_URL: http://es01:9200
       ELASTICSEARCH_HOSTS: '["http://es01:9200"]'
-    extra_hosts:
-      - "host.docker.internal:172.17.0.1"
 
   wordpress:
-    container_name: wordpress
     depends_on:
       - mysql
     image: wordpress:latest
@@ -162,6 +143,8 @@ services:
       WORDPRESS_DB_NAME: wordpress
 
   search-api:
+    depends_on:
+      - es01
     build:
       dockerfile: Dockerfile
       context: ../nest-search-api
