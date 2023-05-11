@@ -1,12 +1,12 @@
 import { Controller, Get } from '@nestjs/common';
-import { SetupService } from './elastic/setup.service';
+import { AppService } from './app.service';
 
 @Controller()
 export class AppController {
-  constructor(private readonly setupService: SetupService) {}
+  constructor(private readonly appService: AppService) {}
 
   @Get()
-  createIndex() {
-    return this.setupService.createIndex();
+  getHello(): string {
+    return this.appService.getHello();
   }
 }
