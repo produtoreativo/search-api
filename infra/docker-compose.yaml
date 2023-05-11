@@ -158,3 +158,5 @@ services:
     command: npm run start:dev
     ports:
       - 3000:3000
+    environment:
+      ELASTICSEARCH_URL: http://es01:9200
