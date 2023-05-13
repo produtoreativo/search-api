@@ -3,10 +3,11 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ElasticModule } from './elastic/elastic.module';
 import { ElasticController } from './elastic/elastic.controller';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
-  imports: [ElasticModule],
-  controllers: [AppController, ElasticController],
+  imports: [ConfigModule.forRoot({isGlobal: true}),ElasticModule],
+  controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}

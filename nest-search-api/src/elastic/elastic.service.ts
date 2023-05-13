@@ -14,7 +14,8 @@ export class ElasticService {
             multi_match: {
               query: query,
               fields: ['name^3', 'description'],
-              type: 'phrase_prefix',
+              operator: 'and',
+              type: 'cross_fields', 
             },
           },
           filter: {
