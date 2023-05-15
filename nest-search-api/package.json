@@ -6,19 +6,20 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
+    "envs": "export $(cat .env | xargs)",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "start": "nest start",
-    "start:dev": "nest start --watch",
-    "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/main",
-    "init": "ts-node -r tsconfig-paths/register ./src/elastic/setup.ts",
+    "start": "npm run envs && nest start",
+    "start:dev": "npm run envs && nest start --watch",
+    "start:debug": "npm run envs && nest start --debug --watch",
+    "start:prod": "npm run envs && node dist/main",
+    "init": "npm run envs && ts-node -r tsconfig-paths/register ./src/elastic/setup.ts",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "npm run envs && jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
     "@elastic/elasticsearch": "^8.7.0",
