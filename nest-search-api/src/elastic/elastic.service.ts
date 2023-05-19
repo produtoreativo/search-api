@@ -15,7 +15,7 @@ export class ElasticService {
               query: query,
               fields: ['name^3', 'description'],
               operator: 'and',
-              type: 'cross_fields', 
+              type: 'cross_fields',
             },
           },
           filter: {
@@ -39,10 +39,10 @@ export class ElasticService {
     //   data: hit._source,
     //   highlight: hit.highlight,
     // }));
-    
+
     return response.hits.hits.map((hit: any) => {
       const { _source: source, highlight } = hit;
-    
+
       return Object.keys(source).reduce((result, key) => {
         result[key] = key in highlight ? highlight[key].join('') : source[key];
         return result;
