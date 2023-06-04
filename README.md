@@ -16,7 +16,7 @@ This project requires some initial configuration steps to run properly. Follow t
 3. Navigate to the infra directory and start the services using Docker Compose:
   ```sh
   cd infra
-  docker-compose up
+  docker-compose up -d
   ```
 
 4. In a separate terminal, navigate to the nest-search-api directory, install all the dependencies and run the initialization script:
