@@ -35,3 +35,7 @@ After completing the setup, you can access the various services at the following
 - Php MyAdmin -> http://localhost:8080
 - Kafka control center -> http://localhost:9021
 - Kibana -> http://localhost:5601
+
+## Running ksql cli
+
+docker exec -it infra-ksql-cli-1 ksql http://ksql-server:8088
