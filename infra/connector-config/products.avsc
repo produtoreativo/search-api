@@ -1,0 +1,35 @@
+{
+    "type": "record",
+    "name": "Product",
+    "fields": [
+        {"name": "KEY", "type": "string"},
+        {"name": "ID", "type": "int"},
+        {"name": "POST_DATE", "type": "long"},
+        {"name": "POST_TITLE", "type": "string"},
+        {"name": "POST_CONTENT", "type": "string"},
+        {"name": "POST_STATUS", "type": "string"},
+        {"name": "POST_NAME", "type": "string"},
+        {"name": "POST_TYPE", "type": "string"},
+        {"name": "METADATA", "type": {
+        "type": "array",
+        "items": {
+            "type": "record",
+            "name": "Metadata",
+            "fields": [
+            {"name": "META_KEY", "type": "string"},
+            {"name": "META_VALUE", "type": "string"}
+            ]
+        }
+        }}
+    ]
+}
+
+
+//   curl -X POST -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+//   --data @./product.avro.json \
+//   http://localhost:8081/subjects/PRODUCT_TABLE-value/versions
+
+
+// curl -X POST -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+//     --data '{ "schema": "{ \"type\": \"int\", \"name\": \"ID\" }" }' \
+//     http://localhost:8081/subjects/PRODUCTS_TABLE-key/versions
