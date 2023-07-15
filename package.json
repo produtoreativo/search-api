@@ -1,0 +1,23 @@
+{
+  "name": "search-api",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:VitoorFranca/search-api.git",
+  "author": "Vitor França <franc.vitoor@gmail.com>",
+  "license": "MIT",
+  "scripts": {
+    "prepare": "husky install",
+    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix"
+  },
+  "dependencies": {
+    "commitlint-config-jira": "^1.6.4",
+    "commitlint-plugin-jira-rules": "^1.6.4",
+    "eslint": "^8.0.1",
+    "eslint-config-prettier": "^8.3.0",
+    "eslint-plugin-prettier": "^4.0.0",
+    "yarn": "^1.22.19"
+  },
+  "devDependencies": {
+    "husky": "^8.0.3"
+  }
+}
