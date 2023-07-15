@@ -2,19 +2,164 @@ version: "3"
 
 services:
 
-  mysql:
-    image: wesleywillians/mysql-kafka-connect:latest
-    container_name: mysql
-    command: --innodb-use-native-aio=0
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    hostname: zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    hostname: kafka
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.4.0
+    container_name: schema-registry
+    depends_on:
+      - zookeeper
+      - kafka
+    ports:
+      - 8081:8081
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: zookeeper:2181
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+
+  kafka-connect:
+    image: confluentinc/cp-kafka-connect-base:7.4.0
+    depends_on:
+      - zookeeper
+      - kafka
+      - schema-registry
+    ports:
+      - 8083:8083
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: "kafka:9092"
+      CONNECT_REST_ADVERTISED_HOST_NAME: "kafka-connect"
+      CONNECT_REST_PORT: 8083
+      CONNECT_GROUP_ID: kafka-connect
+      CONNECT_CONFIG_STORAGE_TOPIC: _connect-configs
+      CONNECT_OFFSET_STORAGE_TOPIC: _connect-offsets
+      CONNECT_STATUS_STORAGE_TOPIC: _connect-status
+      CONNECT_KEY_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL: 'http://schema-registry:8081'
+      CONNECT_VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: 'http://schema-registry:8081'
+      CONNECT_LOG4J_ROOT_LOGLEVEL: "INFO"
+      CONNECT_LOG4J_LOGGERS: "org.apache.kafka.connect.runtime.rest=WARN,org.reflections=ERROR"
+      CONNECT_LOG4J_APPENDER_STDOUT_LAYOUT_CONVERSIONPATTERN: "[%d] %p %X{connector.context}%m (%c:%L)%n"
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: "1"
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: "1"
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: "1"
+      CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components,/data/connect-jars
+    volumes:
+      - ./kf-conn-data:/data
+      - ./scripts/kafka-connect-setup.sh:/usr/local/bin/kafka-connect-setup.sh
+      - ./connector-config/mysql-connector.json:/etc/kafka-connect/mysql-connector.json
+      - ./connector-config/es-sink-connector.json:/etc/kafka-connect/es-sink-connector.json
+    command: ["kafka-connect-setup.sh"]
+
+  control-center:
+    image: confluentinc/cp-enterprise-control-center:7.4.0
+    hostname: control-center
+    depends_on:
+      - kafka
+      - schema-registry
+      - kafka-connect
+      - ksqldb-server
+    ports:
+      - "9021:9021"
+    environment:
+      CONTROL_CENTER_BOOTSTRAP_SERVERS: 'kafka:9092'
+      CONTROL_CENTER_CONNECT_CONNECT-DEFAULT_CLUSTER: http://kafka-connect:8083
+      CONTROL_CENTER_KSQL_KSQLDB1_URL: "http://ksqldb-server:8088"
+      CONTROL_CENTER_KSQL_KSQLDB1_ADVERTISED_URL: "http://localhost:8088"
+      CONTROL_CENTER_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+      CONTROL_CENTER_REPLICATION_FACTOR: 1
+      CONTROL_CENTER_INTERNAL_TOPICS_PARTITIONS: 1
+      CONTROL_CENTER_MONITORING_INTERCEPTOR_TOPIC_PARTITIONS: 1
+      CONTROL_CENTER_CONNECT_HEALTHCHECK_ENDPOINT: '/connectors'
+      CONFLUENT_METRICS_TOPIC_REPLICATION: 1
+      PORT: 9021
+
+  ksqldb-server:
+    image: confluentinc/ksqldb-server:0.28.2
+    hostname: ksqldb-server
+    container_name: ksqldb-server
+    depends_on:
+      - kafka
+      - kafka-connect
+    ports:
+      - "8088:8088"
+    environment:
+      KSQL_LISTENERS: http://0.0.0.0:8088
+      KSQL_BOOTSTRAP_SERVERS: kafka:9092
+      KSQL_CONNECT_URL: http://kafka-connect:8083
+      KSQL_KSQL_LOGGING_PROCESSING_STREAM_AUTO_CREATE: "true"
+      KSQL_KSQL_LOGGING_PROCESSING_TOPIC_AUTO_CREATE: "true"
+      KSQL_KSQL_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+
+  ksqldb-cli:
+    image: confluentinc/ksqldb-cli:0.28.2
+    container_name: ksqldb-cli
+    depends_on:
+      - kafka
+      - kafka-connect
+      - ksqldb-server
+    entrypoint: /bin/sh
     tty: true
+
+  es01:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.8.1
+    environment:
+      - discovery.type=single-node
+      - node.name=es01
+      - xpack.security.enabled=false
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - 9200:9200
+
+  kib01:
+    image: docker.elastic.co/kibana/kibana:8.8.1
+    ports:
+      - 5601:5601
+    environment:
+      ELASTICSEARCH_URL: http://es01:9200
+      ELASTICSEARCH_HOSTS: '["http://es01:9200"]'
+
+  mysql:
+    image: mysql:8.0.33
     restart: always
+    volumes:
+      - ./mysql/my.cnf:/etc/mysql/conf.d/custom.cnf
+      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "3306:3306"
     environment:
-      - MYSQL_DATABASE=wordpress
       - MYSQL_ROOT_PASSWORD=root
-    extra_hosts:
-      - "host.docker.internal:172.17.0.1"
+      - MYSQL_DATABASE=wordpress
+      - MYSQL_USER=wordpress
+      - MYSQL_PASSWORD=wordpress
 
   phpmyadmin:
     image: phpmyadmin:5
@@ -29,149 +174,54 @@ services:
       PMA_USER: root
       PMA_PASSWORD: root
 
-  zookeeper:
-    container_name: zookeeper
-    image: confluentinc/cp-zookeeper:latest
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-
-  kafka:
-    image: confluentinc/cp-kafka:latest
-    container_name: kafka
-    depends_on:
-      - zookeeper
-    ports:
-      - "9092:9092"
-      - "9094:9094"
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
-      KAFKA_LISTENERS: INTERNAL://:9092,OUTSIDE://:9094
-      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,OUTSIDE://host.docker.internal:9094
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,OUTSIDE:PLAINTEXT
-    extra_hosts:
-      - "host.docker.internal:172.17.0.1"
-
-  control-center:
-    image: confluentinc/cp-enterprise-control-center:6.0.1
-    container_name: control-center
-    hostname: control-center
-    depends_on:
-      - kafka
-    ports:
-      - "9021:9021"
-    environment:
-      CONTROL_CENTER_BOOTSTRAP_SERVERS: 'kafka:9092'
-      CONTROL_CENTER_REPLICATION_FACTOR: 1
-      CONTROL_CENTER_CONNECT_CLUSTER: http://kafka-connect:8083
-      PORT: 9021
-    extra_hosts:
-      - "host.docker.internal:172.17.0.1"
-
-  kafka-connect:
-    image: confluentinc/cp-kafka-connect-base:6.0.0
-    container_name: kafka-connect
-    depends_on:
-      - zookeeper
-      - kafka
-    ports:
-      - 8083:8083
-    environment:
-      CONNECT_BOOTSTRAP_SERVERS: "kafka:9092"
-      CONNECT_REST_PORT: 8083
-      CONNECT_GROUP_ID: kafka-connect
-      CONNECT_CONFIG_STORAGE_TOPIC: _connect-configs
-      CONNECT_OFFSET_STORAGE_TOPIC: _connect-offsets
-      CONNECT_STATUS_STORAGE_TOPIC: _connect-status
-      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
-      CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
-      CONNECT_INTERNAL_KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
-      CONNECT_INTERNAL_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
-      CONNECT_REST_ADVERTISED_HOST_NAME: "kafka-connect"
-      CONNECT_LOG4J_ROOT_LOGLEVEL: "INFO"
-      CONNECT_LOG4J_LOGGERS: "org.apache.kafka.connect.runtime.rest=WARN,org.reflections=ERROR"
-      CONNECT_LOG4J_APPENDER_STDOUT_LAYOUT_CONVERSIONPATTERN: "[%d] %p %X{connector.context}%m (%c:%L)%n"
-      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: "1"
-      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: "1"
-      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: "1"
-      CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components,/data/connect-jars
-    volumes:
-      - ./kf-conn-data:/data
-    command:
-      - bash
-      - -c
-      - |
-        echo "Installing Connector"
-        confluent-hub install --no-prompt debezium/debezium-connector-mysql:1.2.2
-        confluent-hub install --no-prompt confluentinc/kafka-connect-elasticsearch:10.0.1
-        #
-        echo "Launching Kafka Connect worker"
-        /etc/confluent/docker/run &
-        #
-        sleep infinity
-    extra_hosts:
-      - "host.docker.internal:172.17.0.1"
-
-  es01:
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.11.2
-    container_name: es01
-    environment:
-      - node.name=es01
-      - cluster.name=es-docker-cluster
-      - cluster.initial_master_nodes=es01
-      - bootstrap.memory_lock=true
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-    # volumes:
-    #   - ./es01:/usr/share/elasticsearch/data
-    ports:
-      - 9200:9200
-    extra_hosts:
-      - "host.docker.internal:172.17.0.1"
-
-  kib01:
-    image: docker.elastic.co/kibana/kibana:7.11.2
-    container_name: kib01
-    ports:
-      - 5601:5601
-    environment:
-      ELASTICSEARCH_URL: http://es01:9200
-      ELASTICSEARCH_HOSTS: '["http://es01:9200"]'
-    extra_hosts:
-      - "host.docker.internal:172.17.0.1"
-
   wordpress:
-    container_name: wordpress
     depends_on:
       - mysql
     image: wordpress:latest
+    user: 1000:1000
     volumes:
-      - ../woocommerce:/var/www/html
+      - wp_data:/var/www/html
     ports:
       - "8000:80"
     restart: always
     environment:
       WORDPRESS_DB_HOST: mysql
-      WORDPRESS_DB_USER: root
-      WORDPRESS_DB_PASSWORD: root
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
       WORDPRESS_DB_NAME: wordpress
 
+  wpcli:
+    depends_on:
+      - wordpress
+      - mysql
+    image: wordpress:cli
+    user: 1000:1000
+    volumes:
+      - wp_data:/var/www/html
+      - ./scripts/wpcli-setup.sh:/usr/local/bin/wpcli-setup.sh
+    environment:
+      WORDPRESS_DB_HOST: mysql
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+      WORDPRESS_DB_NAME: wordpress
+    command: ["wpcli-setup.sh"]
+
   search-api:
+    depends_on:
+      - es01
     build:
       dockerfile: Dockerfile
       context: ../nest-search-api
-      # Only will build development stage from our dockerfile
       target: development
     volumes:
       - ../nest-search-api:/usr/src/app
     # env_file:
     #   - ./search-api/.env
-    # Run a command against the development stage of the image
     command: npm run start:dev
     ports:
       - 3000:3000
+    environment:
+      ELASTICSEARCH_URL: http://es01:9200
+
+volumes:
+  wp_data:
