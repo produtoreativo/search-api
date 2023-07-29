@@ -8,9 +8,9 @@ import { ConfigModule } from '@nestjs/config';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      ignoreEnvFile: true,
+      ignoreEnvFile: false,
     }),
-    ElasticModule
+    ElasticModule,
   ],
   controllers: [AppController],
   providers: [AppService],

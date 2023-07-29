@@ -49,12 +49,21 @@ services:
       - 'elasticsearch_data:/bitnami/elasticsearch/data'
     environment:
       - discovery.type=single-node
-      - node.name=es01
+      - node.name=elasticsearch
       - xpack.security.enabled=false
       - bootstrap.memory_lock=true
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
     ports:
       - 9200:9200
+  kib03:
+    image: docker.elastic.co/kibana/kibana:7.17.10
+    ports:
+      - 5601:5601
+    depends_on:
+      - elasticsearch
+    environment:
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      ELASTICSEARCH_HOSTS: '["http://elasticsearch:9200"]'
 
 volumes:
   mysql_data:
