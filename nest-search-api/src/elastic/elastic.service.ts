@@ -46,9 +46,10 @@ export class ElasticService {
     // }));
 
     return response.hits.hits.map((hit: any) => {
-      const { _source: source, highlight } = hit;
+      const { _id, _source: source, highlight } = hit;
 
       return Object.keys(source).reduce((result, key) => {
+        result['id'] = _id;
         result[key] = key in highlight ? highlight[key].join('') : source[key];
         return result;
       }, {});
