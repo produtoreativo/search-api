@@ -9,5 +9,4 @@ export class ElasticController {
   async search(@Query('query') query: string) {
     return this.searchService.search(query);
   }
-
 }
