@@ -62,3 +62,11 @@ After completing the setup, you can access the various services at the following
   # or
   docker exec -it mysql bash -c 'mysql -u $MYSQL_USER -p$MYSQL_PASSWORD wordpress'
 ```
+
+### Activate logs in the Magento
+bitnami/magento/bin/magento setup:config:set --enable-debug-logging=true
+bitnami/magento/bin/magento dev:query-log:enable
+bitnami/magento/bin/magento cache:flush
+
+watch tail -n 15 bitnami/magento/var/log/debug.log
+watch tail -n 15 bitnami/magento/var/debug/db.log
