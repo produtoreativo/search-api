@@ -1,15 +1,20 @@
 import { Injectable } from '@nestjs/common';
+import { PinoLogger, InjectPinoLogger } from 'nestjs-pino';
 import { ElasticsearchService } from '@nestjs/elasticsearch';
 // import queryMagento from './query';
 
 @Injectable()
 export class ElasticService {
-  constructor(private readonly elasticClient: ElasticsearchService) {}
+  constructor(
+    private readonly elasticClient: ElasticsearchService,
+    @InjectPinoLogger(ElasticService.name)
+    private readonly logger: PinoLogger,
+  ) {}
 
   async search(terms: string) {
     // const query = queryMagento(terms);
     const response = await this.elasticClient.search({
-      index: 'magento2_product_1_v2',
+      index: 'magento2_product_1_v4',
       from: 0,
       size: 12,
       query: {
@@ -39,7 +44,7 @@ export class ElasticService {
       },
     });
 
-    console.log(response.hits);
+    this.logger.info(response.hits);
     // return response.hits.hits.map((hit: any) => ({
     //   data: hit._source,
     //   highlight: hit.highlight,

@@ -12,6 +12,7 @@
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
+    "start:prod:nr": "node --enable-source-maps -r newrelic dist/main",
     "init": "ts-node -r tsconfig-paths/register ./src/elastic/setup.ts",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
@@ -27,6 +28,9 @@
     "@nestjs/core": "^9.0.0",
     "@nestjs/elasticsearch": "^9.0.0",
     "@nestjs/platform-express": "^9.0.0",
+    "nestjs-pino": "^3.3.0",
+    "newrelic": "^10.6.1",
+    "pino-http": "^8.4.0",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.2.0"
   },
