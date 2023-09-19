@@ -30,6 +30,12 @@ This project requires some initial configuration steps to run properly. Follow t
   docker-compose up -d
   ```
 
+Single service  
+
+  ```sh
+    docker-compose up -d es01
+  ```
+
 4. In a separate terminal, navigate to the nest-search-api directory, install all the dependencies and run the initialization script:
   ```sh
   cd nest-search-api
@@ -70,3 +76,5 @@ bitnami/magento/bin/magento cache:flush
 
 watch tail -n 15 bitnami/magento/var/log/debug.log
 watch tail -n 15 bitnami/magento/var/debug/db.log
+
+

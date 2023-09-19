@@ -1,0 +1,24 @@
+{
+  "name": "mssql-connector-solar", 
+  "config": {
+      "connector.class": "io.debezium.connector.sqlserver.SqlServerConnector", 
+      "database.server.name": "mssql",
+      "database.hostname": "mssql", 
+      "database.port": "1433", 
+      "database.user": "sa", 
+      "database.password": "@Fuh1478", 
+      "database.names": "DB_API_Solar", 
+      "topic.prefix": "solar2", 
+      "table.include.list": "dbo.T_HIERARQUIA_PRODUTO_CLIENTE", 
+      "schema.history.internal.kafka.bootstrap.servers": "kafka:9092", 
+      "schema.history.internal.kafka.topic": "schemahistory.solar2",
+      "driver.trustServerCertificate": "true",
+      "transforms": "unwrap,reroute_topic",
+      "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+      "transforms.unwrap.drop.tombstones": "false",
+      "transforms.reroute_topic.type": "io.debezium.transforms.ByLogicalTableRouter",
+      "transforms.reroute_topic.key.enforce.uniqueness": "false",
+      "transforms.reroute_topic.topic.regex": "hierarquia_reroute_source_topic",
+      "transforms.reroute_topic.topic.replacement": "hierarquia_reroute_target_topic"
+  }
+}

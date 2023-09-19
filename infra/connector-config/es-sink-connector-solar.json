@@ -1,8 +1,8 @@
 {
-  "name": "elastisearch-sink",
+  "name": "elastisearch-sink-solar",
   "config": {
     "connector.class": "io.confluent.connect.elasticsearch.ElasticsearchSinkConnector",
-    "topics": "fullfillment.solar.dbo.products",
+    "topics": "solar2.DB_API_Solar.dbo.T_HIERARQUIA_PRODUTO_CLIENTE",
     "connection.url": "http://elasticsearch:9200",
     "type.name": "_doc",
     "key.converter": "io.confluent.connect.avro.AvroConverter",
@@ -14,8 +14,12 @@
     "errors.log.enable": "true",
     "errors.log.include.messages": "true",
     "behavior.on.null.values": "DELETE",
-    "transforms": "extractKey",
-    "transforms.extractKey.type": "org.apache.kafka.connect.transforms.ExtractField$Key",
-    "transforms.extractKey.field": "product_id"
+    "validate.non.null": false,
+    "transforms": "concatenateKey,extract",
+    "transforms.concatenateKey.type": "ConcatenateKeyTransform",
+    "transforms.concatenateKey.key.fields": "CodigoCliente,CodAgrupamento,CodigoProduto",
+    "transforms.concatenateKey.key.delimiter": "-",
+    "transforms.extract.type": "org.apache.kafka.connect.transforms.ExtractField$Key",
+    "transforms.extract.field": "_id"
   }
 }

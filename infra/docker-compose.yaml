@@ -2,10 +2,66 @@ version: "3"
 
 services:
 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.10.0
+    volumes:
+      - 'elasticsearch_data:/bitnami/elasticsearch/data'
+    environment:
+      - discovery.type=single-node
+      - node.name=elasticsearch
+      - xpack.security.enabled=false
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - 9200:9200
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.10.0
+    ports:
+      - 5601:5601
+    environment:
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      ELASTICSEARCH_HOSTS: '["http://elasticsearch:9200"]'
+
+  mysql:
+    image: mysql:8.0.33
+    restart: always
+    volumes:
+      - ./mysql/my.cnf:/etc/mysql/conf.d/custom.cnf
+      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=wordpress
+      - MYSQL_USER=wordpress
+      - MYSQL_PASSWORD=wordpress
+
+  mssql:
+    # image: mcr.microsoft.com/azure-sql-edge:latest
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    cap_add: [ 'SYS_PTRACE' ]
+    environment:
+      - "ACCEPT_EULA=1"
+      - "MSSQL_AGENT_ENABLED=1"
+      - "MSSQL_SA_PASSWORD=@Fuh1478"
+    ports:
+      - "1433:1433"
+    hostname: mssql
+    volumes:
+      - "mssql-azuresql-edge-data2:/var/opt/mssql"
+      # - "mssql-azuresql-edge-data:/var/opt/mssql"
+    # networks: 
+    #   - "learndb_net"
+
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
     hostname: zookeeper
     container_name: zookeeper
+    depends_on:
+      - mssql
+      - elasticsearch
+      - mysql
     ports:
       - "2181:2181"
     environment:
@@ -75,8 +131,45 @@ services:
       - ./kf-conn-data:/data
       - ./scripts/kafka-connect-setup.sh:/usr/local/bin/kafka-connect-setup.sh
       - ./connector-config/mysql-connector.json:/etc/kafka-connect/mysql-connector.json
+      - ./connector-config/mssql-connector.json:/etc/kafka-connect/mssql-connector.json
       - ./connector-config/es-sink-connector.json:/etc/kafka-connect/es-sink-connector.json
     command: ["kafka-connect-setup.sh"]
+
+  # ksqldb-server:
+  #   image: confluentinc/ksqldb-server:0.28.2
+  #   hostname: ksqldb-server
+  #   container_name: ksqldb-server
+  #   depends_on:
+  #     - kafka
+  #     - schema-registry
+  #   ports:
+  #     - "8088:8088"
+  #   environment:
+  #     KSQL_LISTENERS: http://0.0.0.0:8088
+  #     KSQL_BOOTSTRAP_SERVERS: kafka:9092
+  #     KSQL_CONNECT_URL: http://kafka-connect:8083
+  #     KSQL_KSQL_LOGGING_PROCESSING_STREAM_AUTO_CREATE: "true"
+  #     KSQL_KSQL_LOGGING_PROCESSING_TOPIC_AUTO_CREATE: "true"
+  #     KSQL_KSQL_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+
+  # ksqldb-cli:
+  #   image: confluentinc/ksqldb-cli:0.28.2
+  #   container_name: ksqldb-cli
+  #   depends_on:
+  #     - kafka
+  #     - kafka-connect
+  #     - ksqldb-server
+  #   entrypoint: /bin/sh
+  #   tty: true
+
+  kafdrop:
+    image: obsidiandynamics/kafdrop:latest
+    depends_on:
+      - kafka
+    ports:
+      - 19000:9000
+    environment:
+      KAFKA_BROKERCONNECT: kafka:9092
 
   control-center:
     image: confluentinc/cp-enterprise-control-center:7.4.0
@@ -85,14 +178,14 @@ services:
       - kafka
       - schema-registry
       - kafka-connect
-      - ksqldb-server
+      # - ksqldb-server
     ports:
       - "9021:9021"
     environment:
       CONTROL_CENTER_BOOTSTRAP_SERVERS: 'kafka:9092'
       CONTROL_CENTER_CONNECT_CONNECT-DEFAULT_CLUSTER: http://kafka-connect:8083
-      CONTROL_CENTER_KSQL_KSQLDB1_URL: "http://ksqldb-server:8088"
-      CONTROL_CENTER_KSQL_KSQLDB1_ADVERTISED_URL: "http://localhost:8088"
+      # CONTROL_CENTER_KSQL_KSQLDB1_URL: "http://ksqldb-server:8088"
+      # CONTROL_CENTER_KSQL_KSQLDB1_ADVERTISED_URL: "http://localhost:8088"
       CONTROL_CENTER_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
       CONTROL_CENTER_REPLICATION_FACTOR: 1
       CONTROL_CENTER_INTERNAL_TOPICS_PARTITIONS: 1
@@ -101,127 +194,90 @@ services:
       CONFLUENT_METRICS_TOPIC_REPLICATION: 1
       PORT: 9021
 
-  ksqldb-server:
-    image: confluentinc/ksqldb-server:0.28.2
-    hostname: ksqldb-server
-    container_name: ksqldb-server
-    depends_on:
-      - kafka
-      - kafka-connect
-    ports:
-      - "8088:8088"
-    environment:
-      KSQL_LISTENERS: http://0.0.0.0:8088
-      KSQL_BOOTSTRAP_SERVERS: kafka:9092
-      KSQL_CONNECT_URL: http://kafka-connect:8083
-      KSQL_KSQL_LOGGING_PROCESSING_STREAM_AUTO_CREATE: "true"
-      KSQL_KSQL_LOGGING_PROCESSING_TOPIC_AUTO_CREATE: "true"
-      KSQL_KSQL_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+  # es01:
+  #   image: docker.elastic.co/elasticsearch/elasticsearch:8.8.1
+  #   environment:
+  #     - discovery.type=single-node
+  #     - node.name=es01
+  #     - xpack.security.enabled=false
+  #     - bootstrap.memory_lock=true
+  #     - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+  #   ports:
+  #     - 9210:9210
 
-  ksqldb-cli:
-    image: confluentinc/ksqldb-cli:0.28.2
-    container_name: ksqldb-cli
-    depends_on:
-      - kafka
-      - kafka-connect
-      - ksqldb-server
-    entrypoint: /bin/sh
-    tty: true
+  # kib01:
+  #   image: docker.elastic.co/kibana/kibana:8.8.1
+  #   ports:
+  #     - 5602:5602
+  #   environment:
+  #     ELASTICSEARCH_URL: http://es01:9210
+  #     ELASTICSEARCH_HOSTS: '["http://es01:9210"]'
 
-  es01:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.8.1
-    environment:
-      - discovery.type=single-node
-      - node.name=es01
-      - xpack.security.enabled=false
-      - bootstrap.memory_lock=true
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-    ports:
-      - 9210:9210
+  # phpmyadmin:
+  #   image: phpmyadmin:5
+  #   restart: always
+  #   depends_on:
+  #     - mysql
+  #   ports:
+  #     - 8080:80
+  #   environment:
+  #     PMA_ARBITRARY: 1
+  #     PMA_HOST: mysql
+  #     PMA_USER: root
+  #     PMA_PASSWORD: root
 
-  kib01:
-    image: docker.elastic.co/kibana/kibana:8.8.1
-    ports:
-      - 5602:5602
-    environment:
-      ELASTICSEARCH_URL: http://es01:9210
-      ELASTICSEARCH_HOSTS: '["http://es01:9210"]'
+  # wordpress:
+  #   depends_on:
+  #     - mysql
+  #   image: wordpress:latest
+  #   user: 1000:1000
+  #   volumes:
+  #     - wp_data:/var/www/html
+  #   ports:
+  #     - "8000:80"
+  #   restart: always
+  #   environment:
+  #     WORDPRESS_DB_HOST: mysql
+  #     WORDPRESS_DB_USER: wordpress
+  #     WORDPRESS_DB_PASSWORD: wordpress
+  #     WORDPRESS_DB_NAME: wordpress
 
-  mysql:
-    image: mysql:8.0.33
-    restart: always
-    volumes:
-      - ./mysql/my.cnf:/etc/mysql/conf.d/custom.cnf
-      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
-    ports:
-      - "3306:3306"
-    environment:
-      - MYSQL_ROOT_PASSWORD=root
-      - MYSQL_DATABASE=wordpress
-      - MYSQL_USER=wordpress
-      - MYSQL_PASSWORD=wordpress
+  # wpcli:
+  #   depends_on:
+  #     - wordpress
+  #     - mysql
+  #   image: wordpress:cli
+  #   user: 1000:1000
+  #   volumes:
+  #     - wp_data:/var/www/html
+  #     - ./scripts/wpcli-setup.sh:/usr/local/bin/wpcli-setup.sh
+  #   environment:
+  #     WORDPRESS_DB_HOST: mysql
+  #     WORDPRESS_DB_USER: wordpress
+  #     WORDPRESS_DB_PASSWORD: wordpress
+  #     WORDPRESS_DB_NAME: wordpress
+  #   command: ["wpcli-setup.sh"]
 
-  phpmyadmin:
-    image: phpmyadmin:5
-    restart: always
-    depends_on:
-      - mysql
-    ports:
-      - 8080:80
-    environment:
-      PMA_ARBITRARY: 1
-      PMA_HOST: mysql
-      PMA_USER: root
-      PMA_PASSWORD: root
-
-  wordpress:
-    depends_on:
-      - mysql
-    image: wordpress:latest
-    user: 1000:1000
-    volumes:
-      - wp_data:/var/www/html
-    ports:
-      - "8000:80"
-    restart: always
-    environment:
-      WORDPRESS_DB_HOST: mysql
-      WORDPRESS_DB_USER: wordpress
-      WORDPRESS_DB_PASSWORD: wordpress
-      WORDPRESS_DB_NAME: wordpress
-
-  wpcli:
-    depends_on:
-      - wordpress
-      - mysql
-    image: wordpress:cli
-    user: 1000:1000
-    volumes:
-      - wp_data:/var/www/html
-      - ./scripts/wpcli-setup.sh:/usr/local/bin/wpcli-setup.sh
-    environment:
-      WORDPRESS_DB_HOST: mysql
-      WORDPRESS_DB_USER: wordpress
-      WORDPRESS_DB_PASSWORD: wordpress
-      WORDPRESS_DB_NAME: wordpress
-    command: ["wpcli-setup.sh"]
-
-  search-api:
-    depends_on:
-      - es01
-    build:
-      dockerfile: Dockerfile
-      context: ../nest-search-api
-      target: development
-    volumes:
-      - ../nest-search-api:/usr/src/app
-    # env_file:
-    #   - ./search-api/.env
-    command: npm run start:dev
-    ports:
-      - 3000:3000
-    environment:
-      ELASTICSEARCH_URL: http://es01:9200
+  # search-api:
+  #   depends_on:
+  #     - es01
+  #   build:
+  #     dockerfile: Dockerfile
+  #     context: ../nest-search-api
+  #     target: development
+  #   volumes:
+  #     - ../nest-search-api:/usr/src/app
+  #   # env_file:
+  #   #   - ./search-api/.env
+  #   command: npm run start:dev
+  #   ports:
+  #     - 3000:3000
+  #   environment:
+  #     ELASTICSEARCH_URL: http://es01:9200
 
 volumes:
   wp_data:
+  mssql-azuresql-edge-data:
+  mssql-azuresql-edge-data2:
+  elasticsearch_data:
+    driver: local

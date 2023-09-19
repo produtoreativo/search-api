@@ -1,9 +1,8 @@
 #!/bin/bash
 
 echo "Installing Connector"
-confluent-hub install --no-prompt debezium/debezium-connector-mysql:2.2.1
-confluent-hub install --no-prompt confluentinc/kafka-connect-elasticsearch:latest
-confluent-hub install --no-prompt debezium/debezium-connector-sqlserver:2.2.1
+confluent-hub install debezium/debezium-connector-sqlserver:2.2.1
+
 #
 echo "Launching Kafka Connect worker"
 /etc/confluent/docker/run &
@@ -16,6 +15,5 @@ done
 echo "Creating connector..."
 curl -X POST -H "Content-Type: application/json" --data @/etc/kafka-connect/mysql-connector.json http://localhost:8083/connectors
 curl -X POST -H "Content-Type: application/json" --data @/etc/kafka-connect/es-sink-connector.json http://localhost:8083/connectors
-curl -X POST -H "Content-Type: application/json" --data @/etc/kafka-connect/mssql-connector.json http://localhost:8083/connectors
 #
 sleep infinity
